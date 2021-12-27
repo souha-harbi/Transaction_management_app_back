@@ -55,12 +55,14 @@ class Transaction(db.Model):
     montant = db.Column(db.Float)
     descriptif = db.Column(db.String(45))
     date = db.Column(db.Date)
+    idcompte = db.Column(db.String(45))
 
-    def __init__(self, type, montant, descriptif, date):
+    def __init__(self, type, montant, descriptif, date, idcompte):
         self.type = type
         self.montant = montant
         self.descriptif = descriptif
         self.date = date
+        self.idcompte = idcompte
 
     def create(self):
         db.session.add(self)
@@ -84,6 +86,13 @@ def createcompte():
     db.session.add(compte)
     db.session.commit()
     return("succes")
+
+@app.route('/DeleteCompte/<string:id>', methods=['DELETE'])
+@cross_origin()
+def deletecompte(id):
+    db.session.query(Compte).filter(Compte.idcompte == id).delete()
+    db.session.commit()
+    return (id)
 
 
 @app.route('/GetAllCompte')
@@ -121,40 +130,57 @@ def GetTransactionById(idTransaction):
     if len(c) == 0:
         return "Not found"
     return jsonify({'idtransaction': c[0].idtransaction, 'type': c[0].type, 'montant': c[0].montant,
-                    'descriptif': c[0].descriptif, 'date': c[0].date})
+                    'descriptif': c[0].descriptif, 'date': c[0].date, 'numéro de compte': c[0].idcompte})
 
 
 
 
-@app.route('/RetirerArgent', methods=['PUT'])
+@app.route('/RetirerArgent', methods=['POST'])
 @cross_origin()
 def retirerargent():
+    """
+        Cette fonction retire le montant proposé du compte
+        ayant l'id = idcompte donné dans le formulaire
+        :return:
+        String qui indique que le retrait est fait avec succès
+        """
     idcompte = request.json['idcompte']
     montant = request.json['montant']
+    print(type(montant))
     for c in db.session.query(Compte).all():
+        print(c.idcompte)
         if c.idcompte == idcompte:
-            c.solde -= montant
-        break
+            c.solde = c.solde - montant
+            break
     descriptif = request.json['descriptif']
     date = datetime.now()
-    transaction = Transaction("débit", montant, descriptif, date.strftime("%d/%m/%y"))
+    transaction = Transaction("débit", montant, descriptif, date.strftime("%d/%m/%y"), idcompte)
     db.session.add(transaction)
     db.session.commit()
     return ("succes")
 
 
-@app.route('/DeposerArgent', methods=['PUT'])
+@app.route('/DeposerArgent', methods=['POST'])
 @cross_origin()
 def deposerargent():
+    """
+    Cette fonction ajoute le montant proposé au compte
+    ayant l'id = idcompte donné dans le formulaire
+    :return:
+    String qui indique que l'ajout' est fait avec succès
+    """
+
     idcompte = request.json['idcompte']
     montant = request.json['montant']
-    for c in db.session.query(Compte).all():
-        if c.idcompte == idcompte:
-            c.solde += montant
-        break
+    for compte in db.session.query(Compte).all():
+        if compte.idcompte == idcompte:
+            compte.solde += montant
+            break
     descriptif = request.json['descriptif']
+    #save the date of the transaction
     date = datetime.now()
-    transaction = Transaction("débit", montant, descriptif, date.strftime("%y/%m/%d"))
+    print(date)
+    transaction = Transaction("Crédit", montant, descriptif, date.strftime("%y/%m/%d"), idcompte)
     db.session.add(transaction)
     db.session.commit()
     return ("succes")
@@ -170,7 +196,7 @@ def GetAlltransaction():
     print(db.session.query(Transaction).all())
     for t in db.session.query(Transaction).all():
         resp.append({'idtransaction' : t.idtransaction, 'type' : t.type, 'montant' : t.montant,
-                     'descriptif' : t.descriptif})
+                     'descriptif' : t.descriptif, 'idcompte' : t.idcompte, 'date' : t.date.strftime("%d/%m/%Y")})
     return(jsonify(resp))
 
 
